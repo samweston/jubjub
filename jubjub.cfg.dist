@@ -1,21 +1,15 @@
 # Note: Don't surround values with "" or '' this is implied
 
 [irc]
+nickname = jubjub
+username = jubjub
 host = localhost
 port = 6667
 chan = #teabreakbot
 
-[twitter]
-ENABLED = False
-SCREEN_NAME =
-CONSUMER_KEY =
-CONSUMER_SECRET =
-ACCESS_KEY =
-ACCESS_SECRET =
-
 [log]
 ENABLED = False
-PATH = ~/.teabreakbot.log
+PATH = ~/.jubjub.log
 
 [misc]
 TEABREAKLENGTH = 600

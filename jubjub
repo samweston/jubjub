@@ -8,17 +8,17 @@ import datetime
 import time
 import requests
 
-import teabreakbotconfig
+import jubjubconfig
 
 class TeabreakBot(irc.IRCClient):
 
     def __init__(self):
-        self.nickname = "teabreakbot"
-        self.username = "Teabreaks"
         self.lastbreaktime = 0;
         self.lastbreaktype = "";
         self.message = re.compile('^'+self.nickname+'[:,] ?(.*)')
-        self.config = teabreakbotconfig.read_config()
+        self.config = jubjubconfig.read_config()
+        self.nickname = self.config.get('irc','nickname')
+        self.username = self.config.get('irc','username')
 
         try:
             file = open('ops','r')
@@ -27,18 +27,6 @@ class TeabreakBot(irc.IRCClient):
         except:
             self.ops = []
         reactor.callLater(30,self.ping_pong)
-
-        if self.config != None and self.config.getboolean('twitter','enabled'):
-            import tweepy
-            """ Setup twitter API """
-            CONSUMER_KEY = self.config.get('twitter','consumer_key')
-            CONSUMER_SECRET = self.config.get('twitter','consumer_secret')
-            ACCESS_KEY = self.config.get('twitter','access_key')
-            ACCESS_SECRET = self.config.get('twitter','access_secret')
-
-            auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-            auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
-            self.api = tweepy.API(auth)
 
         if self.config != None and self.config.getboolean('log','enabled'):
             self.logpath = os.path.expanduser(self.config.get('log','path'))
@@ -181,7 +169,7 @@ class TeabreakBot(irc.IRCClient):
     def cmd_userlist(self,user,channel,args):
         args = args.strip()
         if user in self.ops:
-            self.say(channel,"Users: "+" ".join(self.ops))
+            self.say(channel,"Users: " + " ".join(self.ops))
         else:
             self.say(channel,"Permission denied")
 
@@ -228,8 +216,7 @@ if __name__ == '__main__':
     # create factory protocol and application
     f = TeabreakBotFactory()
 
-    # read in entries from the config file
-    config = teabreakbotconfig.read_config()
+    config = jubjubconfig.read_config()
 
     # connect factory to this host and port
     reactor.connectTCP(config.get("irc","host"), config.getint("irc","port"), f)
