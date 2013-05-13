@@ -19,6 +19,9 @@ def read_config():
     config.set("log", "enabled","false")
     config.set("log", "path", "~/.jubjub.log")
 
+    config.add_section("database")
+    config.set("database", "path", "db/.db")
+
     config.add_section("misc")
     config.set("misc","teabreaklength","600")
 
