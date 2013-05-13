@@ -36,6 +36,16 @@ class JubJub(irc.IRCClient):
             self.ops = []
             self.database['ops'] = self.ops
 
+        # Set up the modules
+        self.modulenames = self.config.get('irc', 'modules').replace(' ','').split(',')
+        self.modulenames = filter(None, self.modulenames)
+
+        m = __import__('modules', globals(), locals(), self.modulenames, -1)
+
+        self.modules = []
+        for modulename in self.modulenames:
+            self.modules.append(getattr(m, modulename).JubJubModule(self))
+
     def __human_time_diff(self, seconds):
         """ Convert seconds into human readable time periods """
         if seconds < 0:
