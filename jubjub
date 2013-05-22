@@ -2,6 +2,7 @@
 # twisted imports
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
+from threading import Lock
 
 import sys, os, re, stat
 import datetime
@@ -31,11 +32,6 @@ class JubJub(irc.IRCClient):
 
         self.teabreaklength = self.config.getint('misc','teabreaklength')
 
-        self.ops = self.database['ops']
-        if self.ops == None:
-            self.ops = []
-            self.database['ops'] = self.ops
-
         # Set up the modules
         self.modulenames = self.config.get('irc', 'modules').replace(' ','').split(',')
         self.modulenames = filter(None, self.modulenames)
@@ -46,21 +42,74 @@ class JubJub(irc.IRCClient):
         for modulename in self.modulenames:
             self.modules.append(getattr(m, modulename).JubJubModule(self))
 
-    def __human_time_diff(self, seconds):
-        """ Convert seconds into human readable time periods """
-        if seconds < 0:
-            seconds = 0
-        timediffstr = ""
-        if seconds > 3600:
-            timediffstr += str(seconds/3600)+" hour(s) "
-            seconds -= (seconds/3600)*3600
-        if seconds > 60:
-            timediffstr += str(seconds/60)+" minute(s) "
-            seconds -= (seconds/60)*60
-        if seconds > 0 or timediffstr == "":
-            timediffstr += str(seconds)+" second(s)"
-        return timediffstr.strip()
+        self.users = dict()
+        # used in NAMES command
+        self.userlock = dict()
 
+    def signedOn(self):
+        """Called when bot has succesfully signed on to server."""
+        channel = self.config.get('irc', 'chan')
+        self.userlock[channel] = Lock()
+        self.users[channel] = dict()
+        self.join(channel)
+
+    #module calls
+
+    def module_call(self, func, *arg):
+        for module in self.modules:
+            if hasattr(module, func):
+                getattr(module, func)(*arg)
+
+    def connectionMade(self):
+        irc.IRCClient.connectionMade(self)
+        self.module_call('on_connect', channel)
+
+    def joined(self, channel):
+        self.module_call('on_chan_join', channel)
+
+    def privmsg(self, username, channel, msg):
+        self.module_call('on_message', username, channel, msg)
+
+    def userJoined(self, username, channel):
+        self.users[channel][JubJubUser.realname(username)] = JubJubUser(self, username, channel)
+        self.module_call('on_user_join', username, channel)
+
+    def userLeft(self, username, channel):
+        del(self.users[channel][JubJubUser.realname(username)])
+        self.module_call('on_user_leave', username, channel)
+
+    def modeChanged(self, user, channel, s, modes, args):
+        if 'o' in modes:
+            for username in args:
+                self.users[channel][JubJubUser.realname(username)].is_op = s
+
+    ####
+    def get_users(self, channel):
+        return self.users[channel].values()
+
+    def _update_users(self, channel):
+        channel = channel.lower()
+        self.users[channel].clear()
+        self.sendLine("NAMES %s" % channel)
+        self.userlock[channel].acquire()
+        return self.users[channel].values()
+
+    def irc_RPL_NAMREPLY(self, prefix, params):
+        print 'NAMREPLY:' + str(params)
+        channel = params[2].lower()
+        for username in params[3].split(' '):
+            # don't add ourselves
+            rn = JubJubUser.realname(username)
+            if rn != self.nickname:
+                self.users[channel][rn] = JubJubUser(self, username, channel)
+
+    def irc_RPL_ENDOFNAMES(self, prefix, params):
+        print 'ENDOFNAMES:' + str(params)
+        lock = self.userlock[params[1].lower()]
+        if lock.locked():
+            lock.release()
+
+    ### old
     def ping_pong(self):
         self.sendLine("PING :Ph33r!")
         reactor.callLater(30,self.ping_pong)
@@ -70,12 +119,6 @@ class JubJub(irc.IRCClient):
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
-
-    # callbacks for events
-
-    def signedOn(self):
-        """Called when bot has succesfully signed on to server."""
-        self.join(self.config.get('irc','chan'))
 
     def irc_unknown(self, prefix, command, params):
         if command=="PONG":
@@ -90,59 +133,11 @@ class JubJub(irc.IRCClient):
                 for x in dir(self.__class__)
                 if x.startswith("cmd_")]))
 
-    def cmd_op(self,user,channel,args):
-        self.mode(channel,"+","o",user=user)
-
     def do_command(self,user,channel,cmd):
         cmd,args=(cmd+" ").split(" ",1)
         cmd="cmd_"+cmd.lower()
         if cmd in dir(self.__class__):
             getattr(self.__class__,cmd)(self,user,channel,args)
-
-    def privmsg(self, user, channel, msg):
-        """This will get called when the bot receives a message."""
-        print user,"PRIVMSG",channel,msg
-
-        user = user.split('!', 1)[0]
-
-        # is the message at us?
-        splitmsg = self.message.match(msg.lower())
-        if splitmsg:
-            splitmsg = splitmsg.group(1).strip()
-            if "when" in splitmsg.lower() and "last" in splitmsg.lower():
-                if self.lastbreaktime > 0:
-                    currenttime = int(time.time())
-                    timediffstr = self.__human_time_diff(currenttime - self.lastbreaktime)
-                    self.say(channel, "The last break was a "+self.lastbreaktype+", it happened "+timediffstr+" ago at "+datetime.datetime.fromtimestamp(self.lastbreaktime).strftime('%H:%M'))
-            elif "break" in splitmsg.lower():
-                if "lunch" in splitmsg.lower():
-                    breaktype = "lunchbreak"
-                elif "beer" in splitmsg.lower():
-                    breaktype = "beerbreak"
-                else:
-                    breaktype = "teabreak"
-                if user in self.ops:
-                    print "** "+breaktype.upper()+" DETECTED **",user,"has called a "+breaktype
-                    nowbreak = int(time.time())
-                    if (nowbreak - self.lastbreaktime) >= self.teabreaklength:
-                        self.lastbreaktime = nowbreak
-                        self.lastbreaktype = breaktype
-                        teabreakcount = 0
-                    else:
-                        print "** "+breaktype.upper()+" DENIED ** Please wait another "+self.__human_time_diff(self.teabreaklength - (nowbreak - self.lastbreaktime))+" before calling a break"
-                        self.say(channel, breaktype+" denied! Please wait another "+self.__human_time_diff(self.teabreaklength - (nowbreak - self.lastbreaktime))+" before calling a break")
-                else:
-                    print "** UNAUTHORISED USER",user,"ATTEMPTED TO CALL A "+breaktype.upper()+" **"
-                    self.say(channel, breaktype+" denied! You need ops to call a break")
-
-        if channel[0] in ['#','&']:
-            if msg.startswith("!"):# and user in self.ops:
-                self.do_command(user,channel,msg[1:].strip())
-
-    def userJoined(self, user, channel):
-        print user,"JOINED",channel
-        if user in self.ops:
-            self.cmd_op(user, channel, None)
 
     def cmd_useradd(self,user,channel,args):
         args = args.strip(' ')
@@ -238,6 +233,29 @@ class JubJubDatabase():
         except IOError, e:
             print e.errno
             print e
+
+class JubJubUser():
+
+    #need to handle joins, mod change, leaves
+
+    def __init__(self, bot, username, channel):
+        self.bot = bot
+        self.is_op = username[0] == '@'
+        username = JubJubUser.realname(username)
+        self.username = username
+        self.channel = channel
+
+    def __hash__(self):
+        return hash((self.username, self.channel))
+
+    def __eq__(self, other):
+        return (self.username, self.location) == (other.username, other.channel)
+
+    @staticmethod
+    def realname(username):
+        if username[0] == '@':
+            username = username[1:]
+        return username
 
 
 if __name__ == '__main__':
