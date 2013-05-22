@@ -3,6 +3,8 @@ class JubJubModule():
 
     def __init__(self, bot):
         self.bot = bot
+        self.teabreaklength = self.bot.config.getint('misc','teabreaklength')
+
 
     def __human_time_diff(self, seconds):
         """ Convert seconds into human readable time periods """

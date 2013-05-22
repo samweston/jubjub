@@ -30,8 +30,6 @@ class JubJub(irc.IRCClient):
 
         self.database = JubJubDatabase(self.config.get('database', 'path'))
 
-        self.teabreaklength = self.config.getint('misc','teabreaklength')
-
         # Set up the modules
         self.modulenames = self.config.get('irc', 'modules').replace(' ','').split(',')
         self.modulenames = filter(None, self.modulenames)
