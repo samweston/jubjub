@@ -81,7 +81,10 @@ class JubJub(irc.IRCClient):
     def modeChanged(self, user, channel, s, modes, args):
         if 'o' in modes:
             for username in args:
-                self.users[channel][JubJubUser.realname(username)].is_op = s
+                try:
+                    self.users[channel][JubJubUser.realname(username)].is_op = s
+                except:
+                    pass
 
     ####
     def get_users(self, channel):
@@ -100,7 +103,7 @@ class JubJub(irc.IRCClient):
         for username in params[3].split(' '):
             # don't add ourselves
             rn = JubJubUser.realname(username)
-            if rn != self.nickname:
+            if rn != self.nickname and rn != '':
                 self.users[channel][rn] = JubJubUser(self, username, channel)
 
     def irc_RPL_ENDOFNAMES(self, prefix, params):
@@ -253,7 +256,7 @@ class JubJubUser():
 
     @staticmethod
     def realname(username):
-        if username[0] == '@':
+        if len(username) > 1 and username[0] == '@':
             username = username[1:]
         return username
 

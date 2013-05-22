@@ -33,8 +33,12 @@ class JubJubModule():
 
     def on_message(self, username, channel, msg):
         if msg.startswith('!adduser ') and len(msg.split(' ')) > 1:
-            self.cmd_op(msg.split(' ')[1], channel)
-            self.bot.database.save()
+            username = msg.split(' ')[1]
+            if username != '':
+                print 'adding user ' + username
+                self.cmd_op(username, channel)
+                self.ops.append(username)
+                self.bot.database.save()
 
     def on_user_join(self, username, channel):
         if username in self.ops and username[0] != '@':
