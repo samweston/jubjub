@@ -85,9 +85,6 @@ class JubJub(irc.IRCClient):
                     pass
 
     ####
-    def get_users(self, channel):
-        return self.users[channel].values()
-
     def _update_users(self, channel):
         channel = channel.lower()
         self.users[channel].clear()
@@ -109,6 +106,12 @@ class JubJub(irc.IRCClient):
         lock = self.userlock[params[1].lower()]
         if lock.locked():
             lock.release()
+
+    # Public
+
+    def get_users(self, channel):
+        return self.users[channel].values()
+
 
     ### old
     def ping_pong(self):
