@@ -23,7 +23,7 @@ class JubJub(irc.IRCClient):
         self.nickname = self.config.get('irc','nickname')
         self.username = self.config.get('irc','username')
 
-        reactor.callLater(30,self.ping_pong)
+        reactor.callLater(30, self.ping_pong)
 
         if self.config != None and self.config.getboolean('log','enabled'):
             self.logpath = os.path.expanduser(self.config.get('log','path'))
@@ -84,6 +84,12 @@ class JubJub(irc.IRCClient):
                 except:
                     pass
 
+    def connectionMade(self):
+        irc.IRCClient.connectionMade(self)
+
+    def connectionLost(self, reason):
+        irc.IRCClient.connectionLost(self, reason)
+
     ####
     def _update_users(self, channel):
         channel = channel.lower()
@@ -93,7 +99,6 @@ class JubJub(irc.IRCClient):
         return self.users[channel].values()
 
     def irc_RPL_NAMREPLY(self, prefix, params):
-        print 'NAMREPLY:' + str(params)
         channel = params[2].lower()
         for username in params[3].split(' '):
             # don't add ourselves
@@ -102,7 +107,6 @@ class JubJub(irc.IRCClient):
                 self.users[channel][rn] = JubJubUser(self, username, channel)
 
     def irc_RPL_ENDOFNAMES(self, prefix, params):
-        print 'ENDOFNAMES:' + str(params)
         lock = self.userlock[params[1].lower()]
         if lock.locked():
             lock.release()
@@ -112,77 +116,10 @@ class JubJub(irc.IRCClient):
     def get_users(self, channel):
         return self.users[channel].values()
 
-
     ### old
     def ping_pong(self):
         self.sendLine("PING :Ph33r!")
         reactor.callLater(30,self.ping_pong)
-
-    def connectionMade(self):
-        irc.IRCClient.connectionMade(self)
-
-    def connectionLost(self, reason):
-        irc.IRCClient.connectionLost(self, reason)
-
-    def irc_unknown(self, prefix, command, params):
-        if command=="PONG":
-            return
-        print prefix,command,params
-
-    def notice(self, user, channel, msg):
-        print user,"NOTICE",channel,msg
-
-    def cmd_help(self,user,channel,args):
-        self.say(channel," ".join([x[4:]
-                for x in dir(self.__class__)
-                if x.startswith("cmd_")]))
-
-    def do_command(self,user,channel,cmd):
-        cmd,args=(cmd+" ").split(" ",1)
-        cmd="cmd_"+cmd.lower()
-        if cmd in dir(self.__class__):
-            getattr(self.__class__,cmd)(self,user,channel,args)
-
-    def cmd_useradd(self,user,channel,args):
-        args = args.strip(' ')
-#        if user in self.ops and args not in self.ops:
-        if args not in self.ops:
-            self.ops.append(args)
-            self.save_users()
-            self.say(channel, "Added %s" % args)
-
-    def cmd_userdel(self,user,channel,args):
-        args = args.strip(' ')
-        if user in self.ops and args in self.ops:
-            self.ops.remove(args)
-            self.save_users()
-            self.say(channel, "Removed %s" % args)
-
-    def cmd_userlist(self,user,channel,args):
-        args = args.strip()
-        if user in self.ops:
-            self.say(channel,"Users: " + " ".join(self.ops))
-        else:
-            self.say(channel,"Permission denied")
-
-    def save_users(self):
-        self.database.save()
-
-    def log_break(self,channel,user,msg):
-        line = list()
-        start = datetime.datetime.fromtimestamp(self.lastbreaktime)
-        end = datetime.datetime.fromtimestamp(self.lastbreaktime+self.teabreaklength)
-        line.append(start.strftime("%d/%m/%y|%H:%M:%S"))
-        line.append(end.strftime("%d/%m/%y|%H:%M:%S"))
-        line.append(self.lastbreaktype)
-        line.append(channel)
-        line.append(user)
-        line.append(msg)
-        try:
-            with open(self.logpath, 'a') as file:
-                file.write(' '.join(line) + '\n')
-        except:
-            pass
 
 class JubJubFactory(protocol.ClientFactory):
     # the class of the protocol to build when new connection is made
@@ -222,15 +159,14 @@ class JubJubDatabase():
         except:
             print 'Failed to load database'
             data = dict()
-        pprint.PrettyPrinter(indent=4).pprint(self.data)
+#       print db
+#        pprint.PrettyPrinter(indent=4).pprint(self.data)
 
     def save(self):
         parent = os.path.dirname(self.filename)
         if not os.path.exists(parent):
-            print 'creating path '+parent
             os.makedirs(parent)
         try:
-            print 'pickling:'
             pprint.PrettyPrinter(indent=4).pprint(self.data)
             with open(self.filename, 'w') as f:
                 pickle.dump(self.data, f)
