@@ -15,9 +15,6 @@ class JubJubModule():
     def on_message(self, username, channel, msg):
         print 'Template on_message()'
 
-    def on_directed_message(self, username, target, channel, msg):
-        print 'Template on_directed_message()'
-
     def on_user_join(self, username, channel):
         print 'Template on_user_join()'
 
