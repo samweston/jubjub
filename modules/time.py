@@ -4,6 +4,9 @@ import datetime
 import pytz
 import time
 
+# time module, uses google maps apis (geocode and timezone)
+# to convert a string into a local time.
+
 class JubJubModule():
 
     def __init__(self, bot):
@@ -13,7 +16,6 @@ class JubJubModule():
         args = msg.split(' ')
         if len(args) > 0 and args[0] == '!timeat':
             location = msg[len(args[0])+1:]
-#            self.bot.say(channel, 'The time at "' + location + '" is ')
             r1 = requests.get('http://maps.googleapis.com/maps/api/geocode/xml?address=' + location + '&sensor=false')
             xml = ET.fromstring(r1.text.encode('utf-8').strip())
             if xml.find('status').text == 'OK':
