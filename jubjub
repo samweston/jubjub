@@ -41,7 +41,7 @@ class JubJub(irc.IRCClient):
             self.modules.append(getattr(m, modulename).JubJubModule(self))
 
         self.users = dict()
-        # used in NAMES command
+        # Used in NAMES command
         self.userlock = dict()
 
     def signedOn(self):
@@ -51,7 +51,7 @@ class JubJub(irc.IRCClient):
         self.users[channel] = dict()
         self.join(channel)
 
-    #module calls
+    # Module calls
 
     def module_call(self, func, *arg):
         for module in self.modules:
@@ -90,7 +90,6 @@ class JubJub(irc.IRCClient):
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
 
-    ####
     def _update_users(self, channel):
         channel = channel.lower()
         self.users[channel].clear()
@@ -101,7 +100,7 @@ class JubJub(irc.IRCClient):
     def irc_RPL_NAMREPLY(self, prefix, params):
         channel = params[2].lower()
         for username in params[3].split(' '):
-            # don't add ourselves
+            # Don't add ourself
             rn = JubJubUser.realname(username)
             if rn != self.nickname and rn != '':
                 self.users[channel][rn] = JubJubUser(self, username, channel)
@@ -111,18 +110,14 @@ class JubJub(irc.IRCClient):
         if lock.locked():
             lock.release()
 
-    # Public
-
     def get_users(self, channel):
         return self.users[channel].values()
 
-    ### old
     def ping_pong(self):
         self.sendLine("PING :Ph33r!")
         reactor.callLater(30,self.ping_pong)
 
 class JubJubFactory(protocol.ClientFactory):
-    # the class of the protocol to build when new connection is made
     protocol = JubJub
 
     def clientConnectionLost(self, connector, reason):
@@ -159,7 +154,7 @@ class JubJubDatabase():
         except:
             print 'Failed to load database'
             data = dict()
-#       print db
+#        print db
 #        pprint.PrettyPrinter(indent=4).pprint(self.data)
 
     def save(self):
@@ -176,7 +171,7 @@ class JubJubDatabase():
 
 class JubJubUser():
 
-    #need to handle joins, mod change, leaves
+    # TODO Need to handle joins, mod change, leaves
 
     def __init__(self, bot, username, channel):
         self.bot = bot
@@ -199,15 +194,15 @@ class JubJubUser():
 
 
 if __name__ == '__main__':
-    # create factory protocol and application
+    # Create factory protocol and application
     f = JubJubFactory()
 
     config = jubjubconfig.read_config()
 
-    # connect factory to this host and port
+    # Connect factory to this host and port
     reactor.connectTCP(config.get("irc","host"), config.getint("irc","port"), f)
 
-    # run bot
+    # Run the bot
     reactor.run()
 
 # vim: set smartindent shiftwidth=4 tabstop=4 softtabstop=4 expandtab :

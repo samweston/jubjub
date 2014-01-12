@@ -1,6 +1,6 @@
 # jubjub #
 
-An irc bot, forked from teabreakbot http://www.github.com/gizmoguy/teabreakbot
+A simple irc bot, forked from teabreakbot http://www.github.com/gizmoguy/teabreakbot
 
 ## Requirements ##
 
